@@ -1,10 +1,14 @@
 import React from "react"
 import { observer } from "mobx-react"
-import { Bounds } from "../../clientUtils/Bounds.js"
+import { Bounds, DEFAULT_BOUNDS } from "../../clientUtils/Bounds.js"
 import { TreemapChartManager, TreemapSeries } from "./TreemapChartConstants.js"
 import { ChartInterface } from "../chart/ChartInterface.js"
 import { OwidTable } from "../../coreTable/OwidTable.js"
 import { computed } from "mobx"
+import { exposeInstanceOnWindow } from "../../clientUtils/Util.js"
+import { CoreColumn } from "../../coreTable/CoreTableColumns.js"
+import { autoDetectYColumnSlugs } from "../chart/ChartUtils.js"
+import { NoDataModal } from "../noDataModal/NoDataModal.js"
 
 @observer
 export class TreemapChart
@@ -146,7 +150,7 @@ export class TreemapChart
     }
 
     @computed get failMessage(): string {
-        // if (this.yColumn.isMissing) return "Missing Y axis variable"
+        if (this.yColumn.isMissing) return "Missing Y axis variable"
 
         // if (this.yColumn.isMissing) return "Missing X axis variable"
 
@@ -203,6 +207,14 @@ export class TreemapChart
         return table
     }
 
+    @computed get yColumn(): CoreColumn {
+        return this.transformedTable.get(this.yColumnSlug)
+    }
+
+    @computed get yColumnSlug(): string {
+        return autoDetectYColumnSlugs(this.manager)[0]
+    }
+
     @computed get series(): TreemapSeries[] {
         const series: TreemapSeries = {
             color: "",
@@ -224,11 +236,27 @@ export class TreemapChart
         // })
     }
 
+    componentDidMount(): void {
+        exposeInstanceOnWindow(this)
+    }
+
+    @computed.struct private get bounds(): Bounds {
+        return this.props.bounds ?? DEFAULT_BOUNDS
+    }
+
     render(): JSX.Element {
+        if (this.failMessage)
+            return (
+                <NoDataModal
+                    manager={this.manager}
+                    bounds={this.bounds}
+                    message={this.failMessage}
+                />
+            )
         return (
             <g className="TreemapChart">
-                <text x={10} y={20}>
-                    Hello World!
+                <text x={10} y={60}>
+                    {this.manager.endTime}
                 </text>
             </g>
         )

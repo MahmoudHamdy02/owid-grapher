@@ -43,11 +43,11 @@ export class EditorFeatures {
     }
 
     @computed get timeDomain() {
-        return !this.grapher.isDiscreteBar
+        return !(this.grapher.isDiscreteBar || this.grapher.isTreemap)
     }
 
     @computed get timelineRange() {
-        return !this.grapher.isDiscreteBar
+        return !(this.grapher.isDiscreteBar || this.grapher.isTreemap)
     }
 
     @computed get showYearLabels() {

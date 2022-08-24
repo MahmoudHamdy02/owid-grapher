@@ -970,7 +970,8 @@ export class Grapher
             this.isDiscreteBar ||
             this.isStackedDiscreteBar ||
             this.isOnMapTab ||
-            this.isMarimekko
+            this.isMarimekko ||
+            this.isTreemap
         )
     }
 
@@ -1539,6 +1540,9 @@ export class Grapher
     }
     @computed get isStackedDiscreteBar(): boolean {
         return this.type === ChartTypeName.StackedDiscreteBar
+    }
+    @computed get isTreemap(): boolean {
+        return this.type === ChartTypeName.Treemap
     }
 
     @computed get isLineChartThatTurnedIntoDiscreteBar(): boolean {
