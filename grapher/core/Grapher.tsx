@@ -2614,7 +2614,8 @@ export class Grapher
             (this.isLineChart ||
                 this.isStackedArea ||
                 this.isDiscreteBar ||
-                this.isStackedDiscreteBar)
+                this.isStackedDiscreteBar ||
+                this.isTreemap)
         )
     }
 

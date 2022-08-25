@@ -6,5 +6,15 @@ export interface TreemapChartManager extends ChartManager {
 }
 
 export interface TreemapSeries extends ChartSeries {
-    label: string
+    label?: string
+    value: number
+}
+
+export interface TreemapBlock {
+    x: number
+    y: number
+    width: number
+    height: number
+    color: string
+    text: string
 }
