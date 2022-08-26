@@ -108,6 +108,10 @@ export class TreemapChart
         return sum(this.series.map((item) => item.value))
     }
 
+    textLabelWidth(text: string): Bounds {
+        return Bounds.forText(text)
+    }
+
     drawBlock(block: TreemapBlock): JSX.IntrinsicElements["g"] {
         return (
             <g>
@@ -122,8 +126,16 @@ export class TreemapChart
                     stroke={"#444"}
                 ></rect>
                 <text
-                    x={block.x + block.width / 2}
-                    y={block.y + block.height / 2}
+                    x={
+                        block.x +
+                        block.width / 2 -
+                        this.textLabelWidth(block.text).width / 2
+                    }
+                    y={
+                        block.y +
+                        block.height / 2 -
+                        this.textLabelWidth(block.text).height / 2
+                    }
                 >
                     {block.text}
                 </text>
