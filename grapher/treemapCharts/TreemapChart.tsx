@@ -108,13 +108,14 @@ export class TreemapChart
         return sum(this.series.map((item) => item.value))
     }
 
-    textLabelWidth(text: string): Bounds {
-        return Bounds.forText(text)
-    }
-
     drawBlock(block: TreemapBlock): JSX.IntrinsicElements["g"] {
+        const { width: textWidth, height: textHeight } = Bounds.forText(
+            block.text
+        )
+        // Only show text if there is enough space
+        const showText = textWidth < block.width * 0.85
         return (
-            <g>
+            <g key={block.text}>
                 <rect
                     x={block.x}
                     y={block.y}
@@ -125,28 +126,22 @@ export class TreemapChart
                     strokeWidth={1}
                     stroke={"#444"}
                 ></rect>
-                <text
-                    x={
-                        block.x +
-                        block.width / 2 -
-                        this.textLabelWidth(block.text).width / 2
-                    }
-                    y={
-                        block.y +
-                        block.height / 2 -
-                        this.textLabelWidth(block.text).height / 2
-                    }
-                >
-                    {block.text}
-                </text>
+                {showText && (
+                    <text
+                        x={block.x + block.width / 2 - textWidth / 2}
+                        y={block.y + block.height / 2 - textHeight / 2}
+                    >
+                        {block.text}
+                    </text>
+                )}
             </g>
         )
     }
 
-    // Ratios of the series values, relative to the total amount
-    @computed get ratios(): number[] {
-        return this.series.map((item) => item.value / this.seriesSum)
-    }
+    // // Ratios of the series values, relative to the total amount
+    // @computed get ratios(): number[] {
+    //     return this.series.map((item) => item.value / this.seriesSum)
+    // }
 
     render(): JSX.Element {
         if (this.failMessage)
@@ -157,20 +152,20 @@ export class TreemapChart
                     message={this.failMessage}
                 />
             )
-        const { series, bounds, ratios } = this
+        const { series, bounds } = this
         let offset = 0
         return (
             <g className="TreemapChart">
-                {series.map((series, index) => {
+                {series.map((series) => {
                     const rect = this.drawBlock({
                         x: offset,
                         y: 0,
-                        width: ratios[index] * bounds.width,
+                        width: (series.value / this.seriesSum) * bounds.width,
                         height: bounds.height,
                         text: series.seriesName,
                         color: "#ccc",
                     })
-                    offset += ratios[index] * bounds.width
+                    offset += (series.value / this.seriesSum) * bounds.width
                     return rect
                 })}
             </g>
