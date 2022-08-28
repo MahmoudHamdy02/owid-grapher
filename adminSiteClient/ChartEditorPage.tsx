@@ -47,6 +47,7 @@ import { EditorMarimekkoTab } from "./EditorMarimekkoTab.js"
 import { Detail, Topic } from "../grapher/core/GrapherConstants.js"
 import { get, has, set } from "lodash"
 import { GrapherInterface } from "../grapher/core/GrapherInterface.js"
+import { EditorTreemapTab } from "./EditorTreemapTab.js"
 
 @observer
 class TabBinder extends React.Component<{ editor: ChartEditor }> {
@@ -382,6 +383,9 @@ export class ChartEditorPage
                         )}
                         {editor.tab === "marimekko" && (
                             <EditorMarimekkoTab grapher={grapher} />
+                        )}
+                        {editor.tab === "treemap" && (
+                            <EditorTreemapTab grapher={grapher} />
                         )}
                         {editor.tab === "map" && (
                             <EditorMapTab editor={editor} />

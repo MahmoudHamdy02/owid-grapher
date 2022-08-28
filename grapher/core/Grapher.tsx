@@ -52,6 +52,7 @@ import {
     DEFAULT_GRAPHER_WIDTH,
     DEFAULT_GRAPHER_HEIGHT,
     Detail,
+    TreemapRenderStrategy,
 } from "../core/GrapherConstants.js"
 import {
     MultipleOwidVariableDataDimensionsMap,
@@ -352,6 +353,8 @@ export class Grapher
     @observable hideConnectedScatterLines?: boolean = undefined // Hides lines between points when timeline spans multiple years. Requested by core-econ for certain charts
     @observable
     scatterPointLabelStrategy?: ScatterPointLabelStrategy = undefined
+    @observable treemapRenderStrategy?: TreemapRenderStrategy =
+        TreemapRenderStrategy.horizonalSlice
     @observable.ref compareEndPointsOnly?: boolean = undefined
     @observable.ref matchingEntitiesOnly?: boolean = undefined
     /** Hides the total value label that is normally displayed for stacked bar charts */

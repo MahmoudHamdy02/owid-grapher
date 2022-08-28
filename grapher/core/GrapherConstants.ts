@@ -110,6 +110,11 @@ export enum ScatterPointLabelStrategy {
     y = "y",
 }
 
+export enum TreemapRenderStrategy {
+    horizonalSlice = "horizonalSlice",
+    verticalSlice = "verticalSlice",
+}
+
 // todo: remove
 export interface EntitySelection {
     entityId: number

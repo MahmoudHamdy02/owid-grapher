@@ -1,4 +1,4 @@
-import React from "react"
+import React, { SVGProps } from "react"
 import { observer } from "mobx-react"
 import { Bounds, DEFAULT_BOUNDS } from "../../clientUtils/Bounds.js"
 import {
@@ -22,6 +22,7 @@ import {
 } from "../chart/ChartUtils.js"
 import { NoDataModal } from "../noDataModal/NoDataModal.js"
 import { SelectionArray } from "../selection/SelectionArray.js"
+import { TreemapRenderStrategy } from "../core/GrapherConstants.js"
 
 @observer
 export class TreemapChart
@@ -108,12 +109,21 @@ export class TreemapChart
         return sum(this.series.map((item) => item.value))
     }
 
+    @computed get renderStrategy(): string | undefined {
+        const { treemapRenderStrategy } = this.manager
+        return treemapRenderStrategy
+    }
+
+    // Draw one rect block
     drawBlock(block: TreemapBlock): JSX.IntrinsicElements["g"] {
         const { width: textWidth, height: textHeight } = Bounds.forText(
             block.text
         )
         // Only show text if there is enough space
-        const showText = textWidth < block.width * 0.85
+        const showText =
+            this.renderStrategy === TreemapRenderStrategy.horizonalSlice
+                ? textWidth < block.width * 0.85
+                : textHeight < block.height * 0.85
         return (
             <g key={block.text}>
                 <rect
@@ -122,14 +132,14 @@ export class TreemapChart
                     width={block.width}
                     height={block.height}
                     fill={block.color}
-                    fontSize={10}
                     strokeWidth={1}
                     stroke={"#444"}
                 ></rect>
                 {showText && (
                     <text
                         x={block.x + block.width / 2 - textWidth / 2}
-                        y={block.y + block.height / 2 - textHeight / 2}
+                        y={block.y + block.height / 2 + textHeight / 2}
+                        fontSize={14}
                     >
                         {block.text}
                     </text>
@@ -138,10 +148,40 @@ export class TreemapChart
         )
     }
 
-    // // Ratios of the series values, relative to the total amount
-    // @computed get ratios(): number[] {
-    //     return this.series.map((item) => item.value / this.seriesSum)
-    // }
+    // Render Strategies
+    @computed get horizontalSlice(): SVGProps<SVGGElement>[] {
+        let offset = 0
+        const { series, bounds } = this
+        return series.map((series) => {
+            const rect = this.drawBlock({
+                x: offset,
+                y: 0,
+                width: (series.value / this.seriesSum) * bounds.width,
+                height: bounds.height,
+                text: series.seriesName,
+                color: "#ccc",
+            })
+            offset += (series.value / this.seriesSum) * bounds.width
+            return rect
+        })
+    }
+
+    @computed get verticalSlice(): SVGProps<SVGGElement>[] {
+        let offset = 0
+        const { series, bounds } = this
+        return series.map((series) => {
+            const rect = this.drawBlock({
+                x: 0,
+                y: offset,
+                width: bounds.width,
+                height: (series.value / this.seriesSum) * bounds.height,
+                text: series.seriesName,
+                color: "#ccc",
+            })
+            offset += (series.value / this.seriesSum) * bounds.height
+            return rect
+        })
+    }
 
     render(): JSX.Element {
         if (this.failMessage)
@@ -152,22 +192,13 @@ export class TreemapChart
                     message={this.failMessage}
                 />
             )
-        const { series, bounds } = this
-        let offset = 0
+        const { renderStrategy } = this
         return (
             <g className="TreemapChart">
-                {series.map((series) => {
-                    const rect = this.drawBlock({
-                        x: offset,
-                        y: 0,
-                        width: (series.value / this.seriesSum) * bounds.width,
-                        height: bounds.height,
-                        text: series.seriesName,
-                        color: "#ccc",
-                    })
-                    offset += (series.value / this.seriesSum) * bounds.width
-                    return rect
-                })}
+                {renderStrategy === TreemapRenderStrategy.horizonalSlice &&
+                    this.horizontalSlice}
+                {renderStrategy === TreemapRenderStrategy.verticalSlice &&
+                    this.verticalSlice}
             </g>
         )
     }

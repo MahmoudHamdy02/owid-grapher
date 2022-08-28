@@ -151,6 +151,7 @@ export class ChartEditor {
         if (this.grapher.isScatter || this.grapher.isTimeScatter)
             tabs.push("scatter")
         if (this.grapher.isMarimekko) tabs.push("marimekko")
+        if (this.grapher.isTreemap) tabs.push("treemap")
         tabs.push("revisions")
         tabs.push("refs")
         return tabs

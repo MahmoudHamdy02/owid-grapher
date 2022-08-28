@@ -8,6 +8,7 @@ import {
     ChartTypeName,
     FacetStrategy,
     Detail,
+    TreemapRenderStrategy,
 } from "./GrapherConstants.js"
 import { AxisConfigInterface } from "../axis/AxisConfigInterface.js"
 import { TimeBound } from "../../clientUtils/TimeBounds.js"
@@ -70,6 +71,7 @@ export interface GrapherInterface extends SortConfig {
     hideLinesOutsideTolerance?: boolean
     hideConnectedScatterLines?: boolean // Hides lines between points when timeline spans multiple years. Requested by core-econ for certain charts
     scatterPointLabelStrategy?: ScatterPointLabelStrategy
+    treemapRenderStrategy?: TreemapRenderStrategy
     compareEndPointsOnly?: boolean
     matchingEntitiesOnly?: boolean
     hideTotalValueLabel?: boolean
@@ -157,6 +159,7 @@ export const grapherKeysToSerialize = [
     "hideLinesOutsideTolerance",
     "hideConnectedScatterLines",
     "scatterPointLabelStrategy",
+    "treemapRenderStrategy",
     "compareEndPointsOnly",
     "matchingEntitiesOnly",
     "includedEntities",
