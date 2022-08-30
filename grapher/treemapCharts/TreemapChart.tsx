@@ -8,7 +8,7 @@ import {
 } from "./TreemapChartConstants.js"
 import { ChartInterface } from "../chart/ChartInterface.js"
 import { OwidTable } from "../../coreTable/OwidTable.js"
-import { computed } from "mobx"
+import { action, computed, observable } from "mobx"
 import {
     exposeInstanceOnWindow,
     isEmpty,
@@ -23,6 +23,8 @@ import {
 import { NoDataModal } from "../noDataModal/NoDataModal.js"
 import { SelectionArray } from "../selection/SelectionArray.js"
 import { TreemapRenderStrategy } from "../core/GrapherConstants.js"
+import { Tooltip } from "../tooltip/Tooltip.js"
+import { formatValue } from "../../clientUtils/formatValue.js"
 
 @observer
 export class TreemapChart
@@ -32,6 +34,8 @@ export class TreemapChart
     }>
     implements ChartInterface
 {
+    @observable isHovered?: boolean
+
     @computed private get manager(): TreemapChartManager {
         return this.props.manager
     }
@@ -114,6 +118,14 @@ export class TreemapChart
         return treemapRenderStrategy
     }
 
+    @action.bound onBlockMouseOver() {
+        this.isHovered = true
+    }
+
+    @action.bound onBlockMouseLeave() {
+        this.isHovered = false
+    }
+
     // Draw one rect block
     drawBlock(block: TreemapBlock): JSX.IntrinsicElements["g"] {
         const { width: textWidth, height: textHeight } = Bounds.forText(
@@ -125,7 +137,11 @@ export class TreemapChart
                 ? textWidth < block.width * 0.85
                 : textHeight < block.height * 0.85
         return (
-            <g key={block.text}>
+            <g
+                key={block.text}
+                onMouseOver={this.onBlockMouseOver}
+                onMouseLeave={this.onBlockMouseLeave}
+            >
                 <rect
                     x={block.x}
                     y={block.y}
@@ -150,7 +166,7 @@ export class TreemapChart
 
     // Render Strategies
     @computed get horizontalSlice(): SVGProps<SVGGElement>[] {
-        let offset = 0
+        let offset = 10
         const { series, bounds } = this
         return series.map((series) => {
             const rect = this.drawBlock({
@@ -183,6 +199,51 @@ export class TreemapChart
         })
     }
 
+    @computed get tooltip(): JSX.Element | undefined {
+        if (!this.isHovered) return undefined
+
+        const { series } = this
+
+        return (
+            <Tooltip
+                id="treemapTooltip"
+                tooltipManager={this.manager}
+                x={this.bounds.width / 2}
+                y={this.bounds.height / 2}
+            >
+                <table style={{ fontSize: "0.9em", lineHeight: "1.4em" }}>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <strong>
+                                    {this.yColumn.formatTime(
+                                        this.manager.endTime ?? Infinity
+                                    )}
+                                </strong>
+                            </td>
+                            <td></td>
+                        </tr>
+                        {series.map((series) => (
+                            <tr key={series.seriesName}>
+                                <td
+                                    style={{
+                                        paddingRight: "0.8em",
+                                        fontSize: "0.9em",
+                                    }}
+                                >
+                                    {series.seriesName}
+                                </td>
+                                <td style={{ textAlign: "right" }}>
+                                    {formatValue(series.value, {})}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </Tooltip>
+        )
+    }
+
     render(): JSX.Element {
         if (this.failMessage)
             return (
@@ -192,13 +253,14 @@ export class TreemapChart
                     message={this.failMessage}
                 />
             )
-        const { renderStrategy } = this
+        const { renderStrategy, tooltip } = this
         return (
             <g className="TreemapChart">
                 {renderStrategy === TreemapRenderStrategy.horizonalSlice &&
                     this.horizontalSlice}
                 {renderStrategy === TreemapRenderStrategy.verticalSlice &&
                     this.verticalSlice}
+                {tooltip}
             </g>
         )
     }
