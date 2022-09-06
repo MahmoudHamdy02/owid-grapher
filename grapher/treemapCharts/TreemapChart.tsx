@@ -34,7 +34,7 @@ export class TreemapChart
     }>
     implements ChartInterface
 {
-    @observable isHovered?: boolean
+    @observable isHovered: boolean = false
 
     @computed private get manager(): TreemapChartManager {
         return this.props.manager
@@ -118,29 +118,28 @@ export class TreemapChart
         return treemapRenderStrategy
     }
 
-    @action.bound onBlockMouseOver() {
+    @action.bound onBlockMouseOver(): void {
         this.isHovered = true
     }
 
-    @action.bound onBlockMouseLeave() {
+    @action.bound onBlockMouseLeave(): void {
         this.isHovered = false
     }
 
     // Draw one rect block
-    drawBlock(block: TreemapBlock): JSX.IntrinsicElements["g"] {
+    drawBlock(block: TreemapBlock): SVGProps<SVGGElement> {
         const { width: textWidth, height: textHeight } = Bounds.forText(
             block.text
         )
         // Only show text if there is enough space
         const showText =
-            this.renderStrategy === TreemapRenderStrategy.horizonalSlice
-                ? textWidth < block.width * 0.85
-                : textHeight < block.height * 0.85
+            textWidth < block.width * 0.85 && textHeight < block.height * 0.85
         return (
             <g
                 key={block.text}
-                onMouseOver={this.onBlockMouseOver}
-                onMouseLeave={this.onBlockMouseLeave}
+                // Commented for now, breaks squarified chart
+                // onMouseOver={this.onBlockMouseOver}
+                // onMouseLeave={this.onBlockMouseLeave}
             >
                 <rect
                     x={block.x}
@@ -187,7 +186,7 @@ export class TreemapChart
         const { series, bounds } = this
         return series.map((series) => {
             const rect = this.drawBlock({
-                x: 0,
+                x: 10,
                 y: offset,
                 width: bounds.width,
                 height: (series.value / this.seriesSum) * bounds.height,
@@ -196,6 +195,100 @@ export class TreemapChart
             })
             offset += (series.value / this.seriesSum) * bounds.height
             return rect
+        })
+    }
+
+    // Normalize the series values (areas) with respect to the bounds area
+    @computed get normalizedSeries(): number[] {
+        const { series, seriesSum, bounds } = this
+        return series.map((series) => {
+            return (series.value * bounds.area) / seriesSum
+        })
+    }
+
+    getAspectRatio(width: number, height: number): number {
+        return Math.max(width / height, height / width)
+    }
+
+    drawSquarified(
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        direction: "vertical" | "horizontal",
+        series: TreemapSeries[],
+        normalizedSeries: number[]
+    ): TreemapBlock[] {
+        const { getAspectRatio } = this
+        // Full array of blocks to be returned
+        const blocks: TreemapBlock[] = []
+        // inital properties of the current block
+        const initialHeight =
+            direction === "vertical" ? height : normalizedSeries[0] / width
+        const initialWidth =
+            direction === "vertical" ? normalizedSeries[0] / height : width
+        let initialAspectRatio = getAspectRatio(initialHeight, initialWidth)
+        let currentSum = normalizedSeries[0]
+        // normalizedSeries = normalizedSeries.slice(1)
+        // series = series.slice(1)
+        normalizedSeries.slice(1).some((value, index) => {
+            currentSum += value
+            const newWidth = currentSum / height
+            const newHeight = (height * value) / currentSum
+            // const newHeight = direction === "vertical" ? value / newWidth : height
+            const newAspectRatio = getAspectRatio(newHeight, newWidth)
+            if (newAspectRatio > initialAspectRatio) {
+                let yOffset = 0
+                currentSum -= value
+                series.slice(0, index + 1).map((series, seriesIndex) => {
+                    const blockHeight =
+                        (height * normalizedSeries[seriesIndex]) / currentSum
+                    const rect: TreemapBlock = {
+                        x: x,
+                        y: y + yOffset,
+                        height: blockHeight,
+                        width: newWidth,
+                        color: "#ccc",
+                        text: series.seriesName,
+                    }
+                    blocks.push(rect)
+                    yOffset += blockHeight
+                })
+                return true
+            } else {
+                initialAspectRatio = newAspectRatio
+            }
+            return false
+        })
+        return [...blocks]
+
+        // return blocks
+    }
+
+    @computed get testSquarified(): TreemapBlock[] {
+        return this.drawSquarified(
+            0,
+            0,
+            this.bounds.width,
+            this.bounds.height,
+            "vertical",
+            this.series,
+            this.normalizedSeries
+        )
+    }
+
+    @computed get squarified(): SVGProps<SVGGElement>[] {
+        console.log(this.bounds.width, this.bounds.height)
+        return this.drawSquarified(
+            0,
+            0,
+            this.bounds.width,
+            this.bounds.height,
+            "vertical",
+            this.series,
+            this.normalizedSeries
+        ).map((block) => {
+            return this.drawBlock(block)
         })
     }
 
@@ -260,6 +353,8 @@ export class TreemapChart
                     this.horizontalSlice}
                 {renderStrategy === TreemapRenderStrategy.verticalSlice &&
                     this.verticalSlice}
+                {renderStrategy === TreemapRenderStrategy.squarified &&
+                    this.squarified}
                 {tooltip}
             </g>
         )

@@ -113,6 +113,7 @@ export enum ScatterPointLabelStrategy {
 export enum TreemapRenderStrategy {
     horizonalSlice = "horizonalSlice",
     verticalSlice = "verticalSlice",
+    squarified = "squarified",
 }
 
 // todo: remove
