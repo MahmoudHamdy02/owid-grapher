@@ -8,7 +8,7 @@ import {
 } from "./TreemapChartConstants.js"
 import { ChartInterface } from "../chart/ChartInterface.js"
 import { OwidTable } from "../../coreTable/OwidTable.js"
-import { action, computed, observable } from "mobx"
+import { computed, observable } from "mobx"
 import {
     exposeInstanceOnWindow,
     isEmpty,
@@ -34,7 +34,7 @@ export class TreemapChart
     }>
     implements ChartInterface
 {
-    @observable isHovered: boolean = false
+    @observable hoveredBlock: TreemapBlock | undefined = undefined
 
     @computed private get manager(): TreemapChartManager {
         return this.props.manager
@@ -118,14 +118,6 @@ export class TreemapChart
         return treemapRenderStrategy
     }
 
-    @action.bound onBlockMouseOver(): void {
-        this.isHovered = true
-    }
-
-    @action.bound onBlockMouseLeave(): void {
-        this.isHovered = false
-    }
-
     // Draw one rect block
     drawBlock(block: TreemapBlock): SVGProps<SVGGElement> {
         const { width: textWidth, height: textHeight } = Bounds.forText(
@@ -137,9 +129,12 @@ export class TreemapChart
         return (
             <g
                 key={block.text}
-                // Commented for now, breaks squarified chart
-                // onMouseOver={this.onBlockMouseOver}
-                // onMouseLeave={this.onBlockMouseLeave}
+                onMouseOver={() => {
+                    this.hoveredBlock = block
+                }}
+                onMouseLeave={() => {
+                    this.hoveredBlock = undefined
+                }}
             >
                 <rect
                     x={block.x}
@@ -210,6 +205,7 @@ export class TreemapChart
         return Math.max(width / height, height / width)
     }
 
+    // This algorithm draws the entities with aspect ratio that approaches 1 (as close to square blocks as possible)
     drawSquarified(
         x: number,
         y: number,
@@ -219,6 +215,20 @@ export class TreemapChart
         series: TreemapSeries[],
         normalizedSeries: number[]
     ): TreemapBlock[] {
+        // Test for break condition
+        if (series.length === 0) return []
+        if (series.length === 1) {
+            const rect: TreemapBlock = {
+                x: x,
+                y: y,
+                width: width,
+                height: height,
+                color: "#ccc",
+                text: series[0].seriesName,
+            }
+            return [rect]
+        }
+
         const { getAspectRatio } = this
         // Full array of blocks to be returned
         const blocks: TreemapBlock[] = []
@@ -229,56 +239,84 @@ export class TreemapChart
             direction === "vertical" ? normalizedSeries[0] / height : width
         let initialAspectRatio = getAspectRatio(initialHeight, initialWidth)
         let currentSum = normalizedSeries[0]
-        // normalizedSeries = normalizedSeries.slice(1)
-        // series = series.slice(1)
+        let blockWidth = 0
+        let blockHeight = 0
+
+        // Loop over the series starting from the second entity
         normalizedSeries.slice(1).some((value, index) => {
+            // Test the properties of the next block
             currentSum += value
-            const newWidth = currentSum / height
-            const newHeight = (height * value) / currentSum
-            // const newHeight = direction === "vertical" ? value / newWidth : height
+            const newWidth =
+                direction === "vertical"
+                    ? currentSum / height
+                    : (width * value) / currentSum
+            const newHeight =
+                direction === "vertical"
+                    ? (height * value) / currentSum
+                    : currentSum / width
             const newAspectRatio = getAspectRatio(newHeight, newWidth)
+
+            // If aspect ratio increases, draw the previous blocks and return true to break out of .some()
             if (newAspectRatio > initialAspectRatio) {
                 let yOffset = 0
+                let xOffset = 0
+                // Reset values back to original
                 currentSum -= value
+                const newWidth =
+                    direction === "vertical"
+                        ? currentSum / height
+                        : (width * value) / currentSum
+                const newHeight =
+                    direction === "vertical"
+                        ? (height * value) / currentSum
+                        : currentSum / width
                 series.slice(0, index + 1).map((series, seriesIndex) => {
-                    const blockHeight =
-                        (height * normalizedSeries[seriesIndex]) / currentSum
+                    blockHeight =
+                        direction === "vertical"
+                            ? (height * normalizedSeries[seriesIndex]) /
+                              currentSum
+                            : newHeight
+                    blockWidth =
+                        direction === "vertical"
+                            ? newWidth
+                            : (width * normalizedSeries[seriesIndex]) /
+                              currentSum
                     const rect: TreemapBlock = {
-                        x: x,
+                        x: x + xOffset,
                         y: y + yOffset,
                         height: blockHeight,
-                        width: newWidth,
+                        width: blockWidth,
                         color: "#ccc",
                         text: series.seriesName,
                     }
                     blocks.push(rect)
-                    yOffset += blockHeight
+                    direction === "vertical"
+                        ? (yOffset += blockHeight)
+                        : (xOffset += blockWidth)
                 })
                 return true
             } else {
+                // If aspect ratio descreases, continue the loop with the updated one
                 initialAspectRatio = newAspectRatio
             }
             return false
         })
-        return [...blocks]
-
-        // return blocks
-    }
-
-    @computed get testSquarified(): TreemapBlock[] {
-        return this.drawSquarified(
-            0,
-            0,
-            this.bounds.width,
-            this.bounds.height,
-            "vertical",
-            this.series,
-            this.normalizedSeries
-        )
+        // Call the function again on the remaining series entities
+        return [
+            ...blocks,
+            ...this.drawSquarified(
+                direction === "vertical" ? x + blockWidth : x,
+                direction === "vertical" ? y : y + blockHeight,
+                direction === "vertical" ? width - blockWidth : width,
+                direction === "vertical" ? height : height - blockHeight,
+                direction === "vertical" ? "horizontal" : "vertical",
+                series.slice(blocks.length),
+                normalizedSeries.slice(blocks.length)
+            ),
+        ]
     }
 
     @computed get squarified(): SVGProps<SVGGElement>[] {
-        console.log(this.bounds.width, this.bounds.height)
         return this.drawSquarified(
             0,
             0,
@@ -293,7 +331,7 @@ export class TreemapChart
     }
 
     @computed get tooltip(): JSX.Element | undefined {
-        if (!this.isHovered) return undefined
+        if (!this.hoveredBlock) return undefined
 
         const { series } = this
 
@@ -301,8 +339,8 @@ export class TreemapChart
             <Tooltip
                 id="treemapTooltip"
                 tooltipManager={this.manager}
-                x={this.bounds.width / 2}
-                y={this.bounds.height / 2}
+                x={this.hoveredBlock?.x + this.hoveredBlock.width / 2}
+                y={this.hoveredBlock?.y}
             >
                 <table style={{ fontSize: "0.9em", lineHeight: "1.4em" }}>
                     <tbody>
@@ -317,7 +355,16 @@ export class TreemapChart
                             <td></td>
                         </tr>
                         {series.map((series) => (
-                            <tr key={series.seriesName}>
+                            <tr
+                                key={series.seriesName}
+                                style={{
+                                    fontWeight:
+                                        series.seriesName ===
+                                        this.hoveredBlock?.text
+                                            ? "bold"
+                                            : undefined,
+                                }}
+                            >
                                 <td
                                     style={{
                                         paddingRight: "0.8em",
