@@ -110,22 +110,12 @@ export enum ScatterPointLabelStrategy {
     y = "y",
 }
 
-<<<<<<< HEAD
 export enum TreemapRenderStrategy {
     horizonalSlice = "horizonalSlice",
     verticalSlice = "verticalSlice",
     squarified = "squarified",
 }
 
-// todo: remove
-export interface EntitySelection {
-    entityId: number
-    index: number // Which dimension the entity is from
-    color?: string
-}
-
-=======
->>>>>>> master
 export type SeriesName = string
 
 export const GRAPHER_VARIABLES_ROUTE = "/grapher/data/variables"
