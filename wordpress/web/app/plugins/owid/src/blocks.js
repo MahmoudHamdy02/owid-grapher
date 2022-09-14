@@ -12,7 +12,9 @@ import { registerTechnicalText } from "./TechnicalText/TechnicalText.js"
 import { registerAllCharts } from "./AllCharts/AllCharts.js"
 import { registerExpandableParagraph } from "./ExpandableParagraph/ExpandableParagraph.js"
 import { registerStickyNav } from "./StickyNav/StickyNav.js"
+import { registerCodeSnippet } from "./CodeSnippet/CodeSnippet.js"
 import { registerFrontMatter } from "./FrontMatter/FrontMatter.js"
+import { registerResearchAndWriting } from "./ResearchAndWriting/ResearchAndWriting.js"
 const { registerBlockType, registerBlockStyle } = wp.blocks
 const { createHigherOrderComponent } = wp.compose
 const { addFilter } = wp.hooks
@@ -31,7 +33,9 @@ registerTechnicalText()
 registerAllCharts()
 registerExpandableParagraph()
 registerStickyNav()
+registerCodeSnippet()
 registerFrontMatter()
+registerResearchAndWriting()
 
 registerBlockStyle("core/columns", {
     name: "sticky-right",

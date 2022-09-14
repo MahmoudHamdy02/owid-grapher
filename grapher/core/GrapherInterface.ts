@@ -4,7 +4,6 @@ import {
     ScatterPointLabelStrategy,
     RelatedQuestionsConfig,
     EntitySelectionMode,
-    EntitySelection,
     ChartTypeName,
     FacetStrategy,
     Detail,
@@ -95,7 +94,6 @@ export interface GrapherInterface extends SortConfig {
 }
 
 export interface LegacyGrapherInterface extends GrapherInterface {
-    selectedData?: EntitySelection[]
     data: any
 }
 

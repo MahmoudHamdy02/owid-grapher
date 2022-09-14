@@ -57,9 +57,11 @@
 @import "site/blocks/CookiePreferences.scss";
 @import "site/blocks/Grid.scss";
 @import "site/blocks/Card.scss";
+@import "site/blocks/code-snippet.scss";
 @import "site/blocks/BiographyCard.scss";
 @import "site/blocks/KeyInsights.scss";
 @import "site/blocks/TechnicalText.scss";
+@import "site/blocks/research-and-writing.scss";
 @import "site/blocks/GalleryArrow.scss";
 @import "site/ExpandableInlineBlock.scss";
 @import "site/GlossaryExcerpt.scss";
@@ -230,7 +232,7 @@ h6:hover .deep-link {
 }
 
 .article-footer a {
-    @include owid-link;
+    @include owid-link-90;
 }
 
 /* Homepage
@@ -988,7 +990,7 @@ html:not(.js) {
         }
 
         a {
-            @include owid-link;
+            @include owid-link-90;
         }
     }
 }
@@ -1230,10 +1232,7 @@ html:not(.js) {
             font-size: inherit;
         }
         a {
-            color: #453cbb;
-        }
-        a:hover {
-            color: #7d8aef;
+            @include owid-link-90;
         }
     }
 

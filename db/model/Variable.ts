@@ -36,6 +36,8 @@ export interface VariableRow {
     coverage?: string
     timespan?: string
     columnOrder?: number
+    catalogPath?: string
+    dimensions?: string
 }
 
 export type UnparsedVariableRow = VariableRow & { display: string }
@@ -70,7 +72,7 @@ export async function getVariableData(
         }
     >
 
-    const variableQuery: Promise<VariableQueryRow> = db.mysqlFirst(
+    const variableQuery: Promise<VariableQueryRow | undefined> = db.mysqlFirst(
         `
         SELECT
             variables.*,
@@ -104,6 +106,8 @@ export async function getVariableData(
     )
 
     const row = await variableQuery
+
+    if (row === undefined) throw new Error(`Variable ${variableId} not found`)
 
     const {
         sourceId,
