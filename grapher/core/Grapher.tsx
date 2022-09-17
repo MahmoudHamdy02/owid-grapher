@@ -1114,7 +1114,8 @@ export class Grapher
         const color = new DimensionSlot(this, DimensionProperty.color)
         const size = new DimensionSlot(this, DimensionProperty.size)
 
-        if (this.isLineChart || this.isDiscreteBar) return [yAxis, color]
+        if (this.isLineChart || this.isDiscreteBar || this.isTreemap)
+            return [yAxis, color]
         else if (this.isScatter) return [yAxis, xAxis, size, color]
         else if (this.isMarimekko) return [yAxis, xAxis, color]
         else if (this.isTimeScatter) return [yAxis, xAxis]

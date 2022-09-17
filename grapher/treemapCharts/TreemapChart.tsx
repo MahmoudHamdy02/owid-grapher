@@ -14,6 +14,9 @@ import {
     isEmpty,
     sum,
     sortBy,
+    uniq,
+    flatten,
+    excludeUndefined,
 } from "../../clientUtils/Util.js"
 import { CoreColumn } from "../../coreTable/CoreTableColumns.js"
 import {
@@ -25,6 +28,20 @@ import { SelectionArray } from "../selection/SelectionArray.js"
 import { TreemapRenderStrategy } from "../core/GrapherConstants.js"
 import { Tooltip } from "../tooltip/Tooltip.js"
 import { formatValue } from "../../clientUtils/formatValue.js"
+import {
+    VerticalColorLegend,
+    VerticalColorLegendManager,
+} from "../verticalColorLegend/VerticalColorLegend.js"
+import { Color } from "../../coreTable/CoreTableConstants.js"
+import { ColorScale, ColorScaleManager } from "../color/ColorScale.js"
+import { ColorScaleBin } from "../color/ColorScaleBin.js"
+import { ColorSchemes } from "../color/ColorSchemes.js"
+import { ColorScheme } from "../color/ColorScheme.js"
+import { ColorSchemeName } from "../color/ColorConstants.js"
+import {
+    ColorScaleConfig,
+    ColorScaleConfigDefaults,
+} from "../color/ColorScaleConfig.js"
 
 @observer
 export class TreemapChart
@@ -32,9 +49,11 @@ export class TreemapChart
         bounds?: Bounds
         manager: TreemapChartManager
     }>
-    implements ChartInterface
+    implements ChartInterface, VerticalColorLegendManager, ColorScaleManager
 {
     @observable hoveredBlock: TreemapBlock | undefined = undefined
+    @observable private hoverColor?: Color
+    colorScale = this.props.manager.colorScaleOverride ?? new ColorScale(this)
 
     @computed private get manager(): TreemapChartManager {
         return this.props.manager
@@ -48,10 +67,128 @@ export class TreemapChart
         return this.props.bounds ?? DEFAULT_BOUNDS
     }
 
-    transformTable(table: OwidTable): OwidTable {
-        table = table.filterByEntityNames(
-            this.selectionArray.selectedEntityNames
+    @computed get colorScaleColumn(): CoreColumn {
+        return (
+            // For faceted charts, we have to get the values of inputTable before it's filtered by
+            // the faceting logic.
+            this.manager.colorScaleColumnOverride ??
+            // We need to use inputTable in order to get consistent coloring for a variable across
+            // charts, e.g. each continent being assigned to the same color.
+            // inputTable is unfiltered, so it contains every value that exists in the variable.
+            this.inputTable.get(this.colorColumnSlug)
         )
+    }
+
+    @computed private get hoveredSeriesNames(): string[] {
+        const { hoverColor } = this
+
+        const hoveredSeriesNames =
+            hoverColor === undefined
+                ? []
+                : uniq(
+                      this.series
+                          .filter((g) => g.color === hoverColor)
+                          .map((g) => g.seriesName)
+                  )
+
+        // if (hoveredSeries !== undefined) hoveredSeriesNames.push(hoveredSeries)
+
+        return hoveredSeriesNames
+    }
+
+    @computed get activeColors(): string[] {
+        const { hoveredSeriesNames, selectedEntityNames } = this
+        const activeKeys = hoveredSeriesNames.concat(selectedEntityNames)
+
+        let series = this.series
+
+        if (activeKeys.length)
+            series = series.filter((g) => activeKeys.includes(g.seriesName))
+
+        const colorValues = uniq(flatten(series.map((s) => s.color)))
+
+        return excludeUndefined(
+            colorValues.map((color) => this.colorScale.getColor(color))
+        )
+    }
+
+    @computed private get selectedEntityNames(): string[] {
+        return this.selectionArray.selectedEntityNames
+    }
+
+    // @computed private get colorsInUse(): Color[] {
+    //     const allValues =
+    //         this.manager.tableAfterAuthorTimelineAndActiveChartTransform?.get(
+    //             this.colorColumnSlug
+    //         )?.valuesIncludingErrorValues ?? []
+    //     // Need to convert InvalidCell to undefined for color scale to assign correct color
+    //     const colorValues = uniq(
+    //         allValues.map((value) =>
+    //             isNotErrorValue(value) ? value : undefined
+    //         )
+    //     ) as (string | number)[]
+    //     return excludeUndefined(
+    //         colorValues.map((colorValue) =>
+    //             this.colorScale.getColor(colorValue)
+    //         )
+    //     )
+    // }
+
+    @computed get legendItems(): ColorScaleBin[] {
+        return this.colorScale.legendBins
+    }
+
+    @computed private get legendDimensions(): VerticalColorLegend {
+        return new VerticalColorLegend({ manager: this })
+    }
+
+    @computed get maxLegendWidth(): number {
+        return this.sidebarMaxWidth
+    }
+
+    @computed private get sidebarMinWidth(): number {
+        return Math.max(this.bounds.width * 0.1, 60)
+    }
+
+    @computed private get sidebarMaxWidth(): number {
+        return Math.max(this.bounds.width * 0.2, this.sidebarMinWidth)
+    }
+
+    @computed.struct get sidebarWidth(): number {
+        const { legendDimensions, sidebarMinWidth, sidebarMaxWidth } = this
+
+        return Math.max(
+            Math.min(legendDimensions.width, sidebarMaxWidth),
+            sidebarMinWidth
+        )
+    }
+
+    @computed get legendY(): number {
+        return this.bounds.top
+    }
+
+    @computed get legendX(): number {
+        return this.bounds.right - this.sidebarWidth
+    }
+
+    transformTable(table: OwidTable): OwidTable {
+        const { selectedEntityNames } = this
+        table = table.filterByEntityNames(selectedEntityNames)
+
+        if (this.colorColumnSlug) {
+            const tolerance =
+                table.get(this.colorColumnSlug)?.display?.tolerance ?? Infinity
+            table = table.interpolateColumnWithTolerance(
+                this.colorColumnSlug,
+                tolerance
+            )
+            if (this.manager.matchingEntitiesOnly) {
+                table = table.dropRowsWithErrorValuesForColumn(
+                    this.colorColumnSlug
+                )
+            }
+        }
+
         return table
     }
 
@@ -80,8 +217,15 @@ export class TreemapChart
         return this.manager.table
     }
 
+    @computed private get transformedTableFromGrapher(): OwidTable {
+        return (
+            this.manager.transformedTable ??
+            this.transformTable(this.inputTable)
+        )
+    }
+
     @computed get transformedTable(): OwidTable {
-        let table = this.transformTable(this.inputTable)
+        let table = this.transformedTableFromGrapher
         table = table.filterByTargetTimes([this.manager.endTime ?? Infinity])
         return table
     }
@@ -94,19 +238,60 @@ export class TreemapChart
         return autoDetectYColumnSlugs(this.manager)[0]
     }
 
+    @computed get yColumnSlugs(): string[] {
+        return autoDetectYColumnSlugs(this.manager)
+    }
+
     @computed get selectionArray(): SelectionArray {
         return makeSelectionArray(this.manager)
     }
 
+    @computed private get colorColumnSlug(): string | undefined {
+        return this.manager.colorColumnSlug
+    }
+
+    @computed private get colorColumn(): CoreColumn {
+        return this.transformedTable.get(this.colorColumnSlug)
+    }
+
+    @computed get colorScaleConfig(): ColorScaleConfigDefaults | undefined {
+        return (
+            ColorScaleConfig.fromDSL(this.colorColumn.def) ??
+            this.manager.colorScale
+        )
+    }
+
+    defaultBaseColorScheme = ColorSchemeName.continents
+    defaultNoDataColor = "#959595"
+
     @computed get series(): TreemapSeries[] {
         const { yColumn } = this
-        const series = yColumn.owidRows.map((row) => ({
-            color: "#932834",
-            seriesName: row.entityName,
-            value: row.value,
-            time: row.time,
-        }))
+        const series = yColumn.owidRows.map((row, index) => {
+            const block: TreemapSeries = {
+                color: "#ccc",
+                seriesName: row.entityName,
+                value: row.value,
+                time: row.time,
+                label: this.transformedTable.rows[index][this.colorColumn.slug],
+            }
+            this.assignColorToSeries(row.entityName, block)
+            return block
+        })
         return sortBy(series, (item) => item.value).reverse()
+    }
+
+    private assignColorToSeries(
+        entityName: string,
+        series: TreemapSeries
+    ): void {
+        const keyColor = this.transformedTable.getColorForEntityName(entityName)
+        if (keyColor !== undefined) series.color = keyColor
+        else if (!this.colorColumn.isMissing) {
+            const color = this.colorScale.getColor(series.label)
+            if (color !== undefined) {
+                series.color = color
+            }
+        }
     }
 
     @computed get seriesSum(): number {
@@ -166,12 +351,16 @@ export class TreemapChart
             const rect = this.drawBlock({
                 x: offset,
                 y: 0,
-                width: (series.value / this.seriesSum) * bounds.width,
+                width:
+                    (series.value / this.seriesSum) *
+                    (bounds.width - this.sidebarWidth),
                 height: bounds.height,
                 text: series.seriesName,
-                color: "#ccc",
+                color: series.color,
             })
-            offset += (series.value / this.seriesSum) * bounds.width
+            offset +=
+                (series.value / this.seriesSum) *
+                (bounds.width - this.sidebarWidth)
             return rect
         })
     }
@@ -183,10 +372,10 @@ export class TreemapChart
             const rect = this.drawBlock({
                 x: 10,
                 y: offset,
-                width: bounds.width,
+                width: bounds.width - this.sidebarWidth,
                 height: (series.value / this.seriesSum) * bounds.height,
                 text: series.seriesName,
-                color: "#ccc",
+                color: series.color,
             })
             offset += (series.value / this.seriesSum) * bounds.height
             return rect
@@ -197,7 +386,12 @@ export class TreemapChart
     @computed get normalizedSeries(): number[] {
         const { series, seriesSum, bounds } = this
         return series.map((series) => {
-            return (series.value * bounds.area) / seriesSum
+            return (
+                (series.value *
+                    bounds.height *
+                    (bounds.width - this.sidebarWidth)) /
+                seriesSum
+            )
         })
     }
 
@@ -223,7 +417,7 @@ export class TreemapChart
                 y: y,
                 width: width,
                 height: height,
-                color: "#ccc",
+                color: series[0].color,
                 text: series[0].seriesName,
             }
             return [rect]
@@ -286,7 +480,7 @@ export class TreemapChart
                         y: y + yOffset,
                         height: blockHeight,
                         width: blockWidth,
-                        color: "#ccc",
+                        color: series.color,
                         text: series.seriesName,
                     }
                     blocks.push(rect)
@@ -318,9 +512,9 @@ export class TreemapChart
 
     @computed get squarified(): SVGProps<SVGGElement>[] {
         return this.drawSquarified(
+            10,
             0,
-            0,
-            this.bounds.width,
+            this.bounds.width - this.sidebarWidth,
             this.bounds.height,
             "vertical",
             this.series,
@@ -402,6 +596,7 @@ export class TreemapChart
                     this.verticalSlice}
                 {renderStrategy === TreemapRenderStrategy.squarified &&
                     this.squarified}
+                <VerticalColorLegend manager={this} />
                 {tooltip}
             </g>
         )

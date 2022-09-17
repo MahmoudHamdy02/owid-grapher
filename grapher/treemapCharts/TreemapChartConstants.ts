@@ -10,6 +10,7 @@ export interface TreemapChartManager extends ChartManager {
 export interface TreemapSeries extends ChartSeries {
     label?: string
     value: number
+    time: number
 }
 
 export interface TreemapBlock {
