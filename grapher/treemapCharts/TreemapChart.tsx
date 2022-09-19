@@ -55,6 +55,7 @@ export class TreemapChart
 
     colorScale = this.props.manager.colorScaleOverride ?? new ColorScale(this)
 
+    // Tables and chart config
     @computed private get manager(): TreemapChartManager {
         return this.props.manager
     }
@@ -66,6 +67,79 @@ export class TreemapChart
     @computed.struct private get bounds(): Bounds {
         return this.props.bounds ?? DEFAULT_BOUNDS
     }
+
+    transformTable(table: OwidTable): OwidTable {
+        const { selectedEntityNames } = this
+        table = table.filterByEntityNames(selectedEntityNames)
+
+        if (this.colorColumnSlug) {
+            const tolerance =
+                table.get(this.colorColumnSlug)?.display?.tolerance ?? Infinity
+            table = table.interpolateColumnWithTolerance(
+                this.colorColumnSlug,
+                tolerance
+            )
+            if (this.manager.matchingEntitiesOnly) {
+                table = table.dropRowsWithErrorValuesForColumn(
+                    this.colorColumnSlug
+                )
+            }
+        }
+
+        return table
+    }
+
+    @computed get failMessage(): string {
+        if (this.yColumn.isMissing) return "Missing Y axis variable"
+
+        if (isEmpty(this.series)) return "No matching data"
+
+        return ""
+    }
+
+    @computed get inputTable(): OwidTable {
+        return this.manager.table
+    }
+
+    @computed private get transformedTableFromGrapher(): OwidTable {
+        return (
+            this.manager.transformedTable ??
+            this.transformTable(this.inputTable)
+        )
+    }
+
+    @computed get transformedTable(): OwidTable {
+        let table = this.transformedTableFromGrapher
+        table = table.filterByTargetTimes([this.manager.endTime ?? Infinity])
+        return table
+    }
+
+    @computed get selectionArray(): SelectionArray {
+        return makeSelectionArray(this.manager)
+    }
+
+    @computed private get selectedEntityNames(): string[] {
+        return this.selectionArray.selectedEntityNames
+    }
+
+    // Color config
+    @computed private get colorColumnSlug(): string | undefined {
+        return this.manager.colorColumnSlug
+    }
+
+    @computed private get colorColumn(): CoreColumn {
+        return this.transformedTable.get(this.colorColumnSlug)
+    }
+
+    @computed get colorScaleConfig(): ColorScaleConfigDefaults | undefined {
+        return (
+            ColorScaleConfig.fromDSL(this.colorColumn.def) ??
+            this.manager.colorScale
+        )
+    }
+
+    defaultBaseColorScheme = ColorSchemeName.continents
+    defaultNoDataColor = "#959595"
 
     @computed get colorScaleColumn(): CoreColumn {
         return (
@@ -91,8 +165,6 @@ export class TreemapChart
                           .map((g) => g.seriesName)
                   )
 
-        // if (hoveredSeries !== undefined) hoverKeys.push(hoveredSeries)
-
         return hoverKeys
     }
 
@@ -111,28 +183,7 @@ export class TreemapChart
         )
     }
 
-    @computed private get selectedEntityNames(): string[] {
-        return this.selectionArray.selectedEntityNames
-    }
-
-    // @computed private get colorsInUse(): Color[] {
-    //     const allValues =
-    //         this.manager.tableAfterAuthorTimelineAndActiveChartTransform?.get(
-    //             this.colorColumnSlug
-    //         )?.valuesIncludingErrorValues ?? []
-    //     // Need to convert InvalidCell to undefined for color scale to assign correct color
-    //     const colorValues = uniq(
-    //         allValues.map((value) =>
-    //             isNotErrorValue(value) ? value : undefined
-    //         )
-    //     ) as (string | number)[]
-    //     return excludeUndefined(
-    //         colorValues.map((colorValue) =>
-    //             this.colorScale.getColor(colorValue)
-    //         )
-    //     )
-    // }
-
+    // Vertical legend config
     @computed get legendItems(): ColorScaleBin[] {
         return this.colorScale.legendBins
     }
@@ -198,65 +249,7 @@ export class TreemapChart
         }
     }
 
-    transformTable(table: OwidTable): OwidTable {
-        const { selectedEntityNames } = this
-        table = table.filterByEntityNames(selectedEntityNames)
-
-        if (this.colorColumnSlug) {
-            const tolerance =
-                table.get(this.colorColumnSlug)?.display?.tolerance ?? Infinity
-            table = table.interpolateColumnWithTolerance(
-                this.colorColumnSlug,
-                tolerance
-            )
-            if (this.manager.matchingEntitiesOnly) {
-                table = table.dropRowsWithErrorValuesForColumn(
-                    this.colorColumnSlug
-                )
-            }
-        }
-
-        return table
-    }
-
-    @computed get failMessage(): string {
-        if (this.yColumn.isMissing) return "Missing Y axis variable"
-
-        // if (this.yColumn.isMissing) return "Missing X axis variable"
-
-        // if (isEmpty(this.allEntityNamesWithXAndY)) {
-        //     if (
-        //         this.manager.isRelativeMode &&
-        //         this.manager.hasTimeline &&
-        //         this.manager.startTime === this.manager.endTime
-        //     ) {
-        //         return "Please select a start and end point on the timeline below"
-        //     }
-        //     return "No entities with data for both X and Y"
-        // }
-
-        if (isEmpty(this.series)) return "No matching data"
-
-        return ""
-    }
-
-    @computed get inputTable(): OwidTable {
-        return this.manager.table
-    }
-
-    @computed private get transformedTableFromGrapher(): OwidTable {
-        return (
-            this.manager.transformedTable ??
-            this.transformTable(this.inputTable)
-        )
-    }
-
-    @computed get transformedTable(): OwidTable {
-        let table = this.transformedTableFromGrapher
-        table = table.filterByTargetTimes([this.manager.endTime ?? Infinity])
-        return table
-    }
-
+    // Treemap chart config
     @computed get yColumn(): CoreColumn {
         return this.transformedTable.get(this.yColumnSlug)
     }
@@ -268,28 +261,6 @@ export class TreemapChart
     @computed get yColumnSlugs(): string[] {
         return autoDetectYColumnSlugs(this.manager)
     }
-
-    @computed get selectionArray(): SelectionArray {
-        return makeSelectionArray(this.manager)
-    }
-
-    @computed private get colorColumnSlug(): string | undefined {
-        return this.manager.colorColumnSlug
-    }
-
-    @computed private get colorColumn(): CoreColumn {
-        return this.transformedTable.get(this.colorColumnSlug)
-    }
-
-    @computed get colorScaleConfig(): ColorScaleConfigDefaults | undefined {
-        return (
-            ColorScaleConfig.fromDSL(this.colorColumn.def) ??
-            this.manager.colorScale
-        )
-    }
-
-    defaultBaseColorScheme = ColorSchemeName.continents
-    defaultNoDataColor = "#959595"
 
     @computed get series(): TreemapSeries[] {
         const { yColumn } = this
@@ -319,6 +290,23 @@ export class TreemapChart
                 series.color = color
             }
         }
+    }
+
+    // Normalize the series values (areas) with respect to the bounds area
+    @computed get normalizedSeries(): number[] {
+        const { series, seriesSum, bounds } = this
+        return series.map((series) => {
+            return (
+                (series.value *
+                    bounds.height *
+                    (bounds.width - this.sidebarWidth)) /
+                seriesSum
+            )
+        })
+    }
+
+    getAspectRatio(width: number, height: number): number {
+        return Math.max(width / height, height / width)
     }
 
     @computed get seriesSum(): number {
@@ -429,23 +417,6 @@ export class TreemapChart
         })
     }
 
-    // Normalize the series values (areas) with respect to the bounds area
-    @computed get normalizedSeries(): number[] {
-        const { series, seriesSum, bounds } = this
-        return series.map((series) => {
-            return (
-                (series.value *
-                    bounds.height *
-                    (bounds.width - this.sidebarWidth)) /
-                seriesSum
-            )
-        })
-    }
-
-    getAspectRatio(width: number, height: number): number {
-        return Math.max(width / height, height / width)
-    }
-
     // This algorithm draws the entities with aspect ratio that approaches 1 (as close to square blocks as possible)
     drawSquarified(
         x: number,
@@ -537,7 +508,7 @@ export class TreemapChart
                 })
                 return true
             } else {
-                // If aspect ratio descreases, continue the loop with the updated one
+                // If aspect ratio descreases, continue the loop with the updated ratio
                 initialAspectRatio = newAspectRatio
             }
             return false
