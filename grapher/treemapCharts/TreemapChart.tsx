@@ -8,15 +8,13 @@ import {
 } from "./TreemapChartConstants.js"
 import { ChartInterface } from "../chart/ChartInterface.js"
 import { OwidTable } from "../../coreTable/OwidTable.js"
-import { computed, observable } from "mobx"
+import { action, computed, observable } from "mobx"
 import {
     exposeInstanceOnWindow,
     isEmpty,
     sum,
     sortBy,
     uniq,
-    flatten,
-    excludeUndefined,
 } from "../../clientUtils/Util.js"
 import { CoreColumn } from "../../coreTable/CoreTableColumns.js"
 import {
@@ -35,8 +33,6 @@ import {
 import { Color } from "../../coreTable/CoreTableConstants.js"
 import { ColorScale, ColorScaleManager } from "../color/ColorScale.js"
 import { ColorScaleBin } from "../color/ColorScaleBin.js"
-import { ColorSchemes } from "../color/ColorSchemes.js"
-import { ColorScheme } from "../color/ColorScheme.js"
 import { ColorSchemeName } from "../color/ColorConstants.js"
 import {
     ColorScaleConfig,
@@ -52,7 +48,11 @@ export class TreemapChart
     implements ChartInterface, VerticalColorLegendManager, ColorScaleManager
 {
     @observable hoveredBlock: TreemapBlock | undefined = undefined
+    // Color currently hovered on the legend
     @observable private hoverColor?: Color
+    // Color currently clicked on the legend
+    @observable private focusColor?: Color
+
     colorScale = this.props.manager.colorScaleOverride ?? new ColorScale(this)
 
     @computed private get manager(): TreemapChartManager {
@@ -79,10 +79,10 @@ export class TreemapChart
         )
     }
 
-    @computed private get hoveredSeriesNames(): string[] {
+    @computed private get hoverKeys(): string[] {
         const { hoverColor } = this
 
-        const hoveredSeriesNames =
+        const hoverKeys =
             hoverColor === undefined
                 ? []
                 : uniq(
@@ -91,24 +91,23 @@ export class TreemapChart
                           .map((g) => g.seriesName)
                   )
 
-        // if (hoveredSeries !== undefined) hoveredSeriesNames.push(hoveredSeries)
+        // if (hoveredSeries !== undefined) hoverKeys.push(hoveredSeries)
 
-        return hoveredSeriesNames
+        return hoverKeys
     }
 
     @computed get activeColors(): string[] {
-        const { hoveredSeriesNames, selectedEntityNames } = this
-        const activeKeys = hoveredSeriesNames.concat(selectedEntityNames)
+        const { hoverKeys } = this
+        const activeKeys = hoverKeys.length > 0 ? hoverKeys : []
 
-        let series = this.series
+        if (!activeKeys.length)
+            // No hover means they're all active by default
+            return uniq(this.series.map((g) => g.color))
 
-        if (activeKeys.length)
-            series = series.filter((g) => activeKeys.includes(g.seriesName))
-
-        const colorValues = uniq(flatten(series.map((s) => s.color)))
-
-        return excludeUndefined(
-            colorValues.map((color) => this.colorScale.getColor(color))
+        return uniq(
+            this.series
+                .filter((g) => activeKeys.indexOf(g.seriesName) !== -1)
+                .map((g) => g.color)
         )
     }
 
@@ -136,6 +135,10 @@ export class TreemapChart
 
     @computed get legendItems(): ColorScaleBin[] {
         return this.colorScale.legendBins
+    }
+
+    @computed get legendTitle(): string | undefined {
+        return this.colorScale.legendDescription
     }
 
     @computed private get legendDimensions(): VerticalColorLegend {
@@ -169,6 +172,30 @@ export class TreemapChart
 
     @computed get legendX(): number {
         return this.bounds.right - this.sidebarWidth
+    }
+
+    @action.bound onLegendMouseOver(color: string): void {
+        this.hoverColor = color
+    }
+
+    @action.bound onLegendMouseLeave(): void {
+        this.hoverColor = undefined
+    }
+
+    // When the color legend is clicked, toggle selection fo all associated keys
+    @action.bound onLegendClick(): void {
+        if (this.hoverColor === undefined) return
+
+        if (!this.activeColors.includes(this.hoverColor)) {
+            this.focusColor = undefined
+        } else if (this.focusColor === undefined) {
+            this.focusColor = this.hoverColor
+        } else {
+            this.focusColor =
+                this.focusColor === this.hoverColor
+                    ? undefined
+                    : this.hoverColor
+        }
     }
 
     transformTable(table: OwidTable): OwidTable {
@@ -311,6 +338,8 @@ export class TreemapChart
         // Only show text if there is enough space
         const showText =
             textWidth < block.width * 0.85 && textHeight < block.height * 0.85
+        const isFocused = block.color === this.focusColor
+        const isHovered = block.color === this.hoverColor || !this.hoverColor
         return (
             <g
                 key={block.text}
@@ -327,6 +356,15 @@ export class TreemapChart
                     width={block.width}
                     height={block.height}
                     fill={block.color}
+                    opacity={
+                        !this.focusColor
+                            ? isHovered
+                                ? 0.8
+                                : 0.2
+                            : isFocused
+                            ? 0.8
+                            : 0.2
+                    }
                     strokeWidth={1}
                     stroke={"#444"}
                 ></rect>
@@ -335,6 +373,15 @@ export class TreemapChart
                         x={block.x + block.width / 2 - textWidth / 2}
                         y={block.y + block.height / 2 + textHeight / 2}
                         fontSize={14}
+                        opacity={
+                            !this.focusColor
+                                ? isHovered
+                                    ? 0.8
+                                    : 0.2
+                                : isFocused
+                                ? 0.8
+                                : 0.2
+                        }
                     >
                         {block.text}
                     </text>
