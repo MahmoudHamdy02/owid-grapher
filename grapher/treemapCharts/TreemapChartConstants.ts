@@ -1,3 +1,4 @@
+import { CoreColumn } from "../../coreTable/CoreTableColumns.js"
 import { ChartSeries } from "../chart/ChartInterface.js"
 import { ChartManager } from "../chart/ChartManager.js"
 import { TreemapRenderStrategy } from "../core/GrapherConstants.js"
@@ -20,4 +21,11 @@ export interface TreemapBlock {
     height: number
     color: string
     text: string
+}
+
+export interface TooltipProps {
+    hoveredBlock: TreemapBlock | undefined
+    series: TreemapSeries[]
+    yColumn: CoreColumn
+    manager: TreemapChartManager
 }

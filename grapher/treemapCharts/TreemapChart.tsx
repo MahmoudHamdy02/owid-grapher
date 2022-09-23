@@ -2,6 +2,7 @@ import React, { SVGProps } from "react"
 import { observer } from "mobx-react"
 import { Bounds, DEFAULT_BOUNDS } from "../../clientUtils/Bounds.js"
 import {
+    TooltipProps,
     TreemapBlock,
     TreemapChartManager,
     TreemapSeries,
@@ -24,7 +25,6 @@ import {
 import { NoDataModal } from "../noDataModal/NoDataModal.js"
 import { SelectionArray } from "../selection/SelectionArray.js"
 import { TreemapRenderStrategy } from "../core/GrapherConstants.js"
-import { Tooltip } from "../tooltip/Tooltip.js"
 import { formatValue } from "../../clientUtils/formatValue.js"
 import {
     VerticalColorLegend,
@@ -38,6 +38,7 @@ import {
     ColorScaleConfig,
     ColorScaleConfigDefaults,
 } from "../color/ColorScaleConfig.js"
+import { TippyIfInteractive } from "../chart/Tippy.js"
 
 @observer
 export class TreemapChart
@@ -319,7 +320,10 @@ export class TreemapChart
     }
 
     // Draw one rect block
-    drawBlock(block: TreemapBlock): SVGProps<SVGGElement> {
+    drawBlock(
+        block: TreemapBlock,
+        tooltipProps: TooltipProps
+    ): SVGProps<SVGGElement> {
         const { width: textWidth, height: textHeight } = Bounds.forText(
             block.text
         )
@@ -329,38 +333,27 @@ export class TreemapChart
         const isFocused = block.color === this.focusColor
         const isHovered = block.color === this.hoverColor || !this.hoverColor
         return (
-            <g
-                key={block.text}
-                onMouseOver={() => {
-                    this.hoveredBlock = block
-                }}
-                onMouseLeave={() => {
-                    this.hoveredBlock = undefined
-                }}
+            <TippyIfInteractive
+                lazy
+                content={<TreemapChart.tooltip {...tooltipProps} />}
+                hideOnClick={false}
+                isInteractive={true}
             >
-                <rect
-                    x={block.x}
-                    y={block.y}
-                    width={block.width}
-                    height={block.height}
-                    fill={block.color}
-                    opacity={
-                        !this.focusColor
-                            ? isHovered
-                                ? 0.8
-                                : 0.2
-                            : isFocused
-                            ? 0.8
-                            : 0.2
-                    }
-                    strokeWidth={1}
-                    stroke={"#444"}
-                ></rect>
-                {showText && (
-                    <text
-                        x={block.x + block.width / 2 - textWidth / 2}
-                        y={block.y + block.height / 2 + textHeight / 2}
-                        fontSize={14}
+                <g
+                    key={block.text}
+                    onMouseOver={() => {
+                        this.hoveredBlock = block
+                    }}
+                    onMouseLeave={() => {
+                        this.hoveredBlock = undefined
+                    }}
+                >
+                    <rect
+                        x={block.x}
+                        y={block.y}
+                        width={block.width}
+                        height={block.height}
+                        fill={block.color}
                         opacity={
                             !this.focusColor
                                 ? isHovered
@@ -370,11 +363,29 @@ export class TreemapChart
                                 ? 0.8
                                 : 0.2
                         }
-                    >
-                        {block.text}
-                    </text>
-                )}
-            </g>
+                        strokeWidth={1}
+                        stroke={"#444"}
+                    ></rect>
+                    {showText && (
+                        <text
+                            x={block.x + block.width / 2 - textWidth / 2}
+                            y={block.y + block.height / 2 + textHeight / 2}
+                            fontSize={14}
+                            opacity={
+                                !this.focusColor
+                                    ? isHovered
+                                        ? 0.8
+                                        : 0.2
+                                    : isFocused
+                                    ? 0.8
+                                    : 0.2
+                            }
+                        >
+                            {block.text}
+                        </text>
+                    )}
+                </g>
+            </TippyIfInteractive>
         )
     }
 
@@ -383,16 +394,19 @@ export class TreemapChart
         let offset = 10
         const { series, bounds } = this
         return series.map((series) => {
-            const rect = this.drawBlock({
-                x: offset,
-                y: 0,
-                width:
-                    (series.value / this.seriesSum) *
-                    (bounds.width - this.sidebarWidth),
-                height: bounds.height,
-                text: series.seriesName,
-                color: series.color,
-            })
+            const rect = this.drawBlock(
+                {
+                    x: offset,
+                    y: 0,
+                    width:
+                        (series.value / this.seriesSum) *
+                        (bounds.width - this.sidebarWidth),
+                    height: bounds.height,
+                    text: series.seriesName,
+                    color: series.color,
+                },
+                this.tooltipProps
+            )
             offset +=
                 (series.value / this.seriesSum) *
                 (bounds.width - this.sidebarWidth)
@@ -404,14 +418,17 @@ export class TreemapChart
         let offset = 0
         const { series, bounds } = this
         return series.map((series) => {
-            const rect = this.drawBlock({
-                x: 10,
-                y: offset,
-                width: bounds.width - this.sidebarWidth,
-                height: (series.value / this.seriesSum) * bounds.height,
-                text: series.seriesName,
-                color: series.color,
-            })
+            const rect = this.drawBlock(
+                {
+                    x: 10,
+                    y: offset,
+                    width: bounds.width - this.sidebarWidth,
+                    height: (series.value / this.seriesSum) * bounds.height,
+                    text: series.seriesName,
+                    color: series.color,
+                },
+                this.tooltipProps
+            )
             offset += (series.value / this.seriesSum) * bounds.height
             return rect
         })
@@ -538,61 +555,62 @@ export class TreemapChart
             this.series,
             this.normalizedSeries
         ).map((block) => {
-            return this.drawBlock(block)
+            return this.drawBlock(block, this.tooltipProps)
         })
     }
 
-    @computed get tooltip(): JSX.Element | undefined {
-        if (!this.hoveredBlock) return undefined
+    // Tooltip config
+    @computed get tooltipProps(): TooltipProps {
+        const tooltipProps: TooltipProps = {
+            hoveredBlock: this.hoveredBlock,
+            manager: this.manager,
+            series: this.series,
+            yColumn: this.yColumn,
+        }
+        return tooltipProps
+    }
 
-        const { series } = this
+    private static tooltip(props: TooltipProps): JSX.Element {
+        const { hoveredBlock, series, yColumn, manager } = props
 
         return (
-            <Tooltip
-                id="treemapTooltip"
-                tooltipManager={this.manager}
-                x={this.hoveredBlock?.x + this.hoveredBlock.width / 2}
-                y={this.hoveredBlock?.y}
-            >
-                <table style={{ fontSize: "0.9em", lineHeight: "1.4em" }}>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <strong>
-                                    {this.yColumn.formatTime(
-                                        this.manager.endTime ?? Infinity
-                                    )}
-                                </strong>
-                            </td>
-                            <td></td>
-                        </tr>
-                        {series.map((series) => (
-                            <tr
-                                key={series.seriesName}
+            <table style={{ fontSize: "0.9em", lineHeight: "1.4em" }}>
+                <tbody>
+                    <tr>
+                        <td>
+                            <strong>
+                                {yColumn.formatTime(
+                                    manager.endTime ?? Infinity
+                                )}
+                            </strong>
+                        </td>
+                        <td></td>
+                    </tr>
+                    {series.map((series) => (
+                        <tr
+                            key={series.seriesName}
+                            style={{
+                                fontWeight:
+                                    series.seriesName === hoveredBlock?.text
+                                        ? "bold"
+                                        : undefined,
+                            }}
+                        >
+                            <td
                                 style={{
-                                    fontWeight:
-                                        series.seriesName ===
-                                        this.hoveredBlock?.text
-                                            ? "bold"
-                                            : undefined,
+                                    paddingRight: "0.8em",
+                                    fontSize: "0.9em",
                                 }}
                             >
-                                <td
-                                    style={{
-                                        paddingRight: "0.8em",
-                                        fontSize: "0.9em",
-                                    }}
-                                >
-                                    {series.seriesName}
-                                </td>
-                                <td style={{ textAlign: "right" }}>
-                                    {formatValue(series.value, {})}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </Tooltip>
+                                {series.seriesName}
+                            </td>
+                            <td style={{ textAlign: "right" }}>
+                                {formatValue(series.value, {})}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
         )
     }
 
@@ -605,7 +623,8 @@ export class TreemapChart
                     message={this.failMessage}
                 />
             )
-        const { renderStrategy, tooltip } = this
+        const { renderStrategy } = this
+
         return (
             <g className="TreemapChart">
                 {renderStrategy === TreemapRenderStrategy.horizonalSlice &&
@@ -615,7 +634,14 @@ export class TreemapChart
                 {renderStrategy === TreemapRenderStrategy.squarified &&
                     this.squarified}
                 <VerticalColorLegend manager={this} />
-                {tooltip}
+                <TippyIfInteractive
+                    lazy
+                    isInteractive={!this.manager.isExportingtoSvgOrPng}
+                    hideOnClick={false}
+                    content={<TreemapChart.tooltip {...this.tooltipProps} />}
+                >
+                    <text>{this.hoveredBlock?.text}</text>
+                </TippyIfInteractive>
             </g>
         )
     }
