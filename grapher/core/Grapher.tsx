@@ -1659,7 +1659,7 @@ export class Grapher
         setBoundsFromContainerAndRender()
         window.addEventListener(
             "resize",
-            throttle(setBoundsFromContainerAndRender, 400)
+            debounce(setBoundsFromContainerAndRender, 400)
         )
         return grapherInstanceRef.current
     }
