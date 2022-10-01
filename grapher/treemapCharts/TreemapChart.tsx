@@ -333,44 +333,28 @@ export class TreemapChart
         const isFocused = block.color === this.focusColor
         const isHovered = block.color === this.hoverColor || !this.hoverColor
         return (
-            <TippyIfInteractive
-                lazy
-                content={<TreemapChart.tooltip {...tooltipProps} />}
-                hideOnClick={false}
-                isInteractive={true}
+            <g
+                key={block.text}
+                onMouseOver={() => {
+                    this.hoveredBlock = block
+                }}
+                onMouseLeave={() => {
+                    this.hoveredBlock = undefined
+                }}
             >
-                <g
-                    key={block.text}
-                    onMouseOver={() => {
-                        this.hoveredBlock = block
-                    }}
-                    onMouseLeave={() => {
-                        this.hoveredBlock = undefined
-                    }}
+                <TippyIfInteractive
+                    lazy
+                    content={<TreemapChart.tooltip {...tooltipProps} />}
+                    hideOnClick={false}
+                    isInteractive={true}
                 >
-                    <rect
-                        x={block.x}
-                        y={block.y}
-                        width={block.width}
-                        height={block.height}
-                        fill={block.color}
-                        opacity={
-                            !this.focusColor
-                                ? isHovered
-                                    ? 0.8
-                                    : 0.2
-                                : isFocused
-                                ? 0.8
-                                : 0.2
-                        }
-                        strokeWidth={1}
-                        stroke={"#444"}
-                    ></rect>
-                    {showText && (
-                        <text
-                            x={block.x + block.width / 2 - textWidth / 2}
-                            y={block.y + block.height / 2 + textHeight / 2}
-                            fontSize={14}
+                    <g>
+                        <rect
+                            x={block.x}
+                            y={block.y}
+                            width={block.width}
+                            height={block.height}
+                            fill={block.color}
                             opacity={
                                 !this.focusColor
                                     ? isHovered
@@ -380,12 +364,30 @@ export class TreemapChart
                                     ? 0.8
                                     : 0.2
                             }
-                        >
-                            {block.text}
-                        </text>
-                    )}
-                </g>
-            </TippyIfInteractive>
+                            strokeWidth={1}
+                            stroke={"#444"}
+                        ></rect>
+                        {showText && (
+                            <text
+                                x={block.x + block.width / 2 - textWidth / 2}
+                                y={block.y + block.height / 2 + textHeight / 2}
+                                fontSize={14}
+                                opacity={
+                                    !this.focusColor
+                                        ? isHovered
+                                            ? 0.8
+                                            : 0.2
+                                        : isFocused
+                                        ? 0.8
+                                        : 0.2
+                                }
+                            >
+                                {block.text}
+                            </text>
+                        )}
+                    </g>
+                </TippyIfInteractive>
+            </g>
         )
     }
 
@@ -634,14 +636,6 @@ export class TreemapChart
                 {renderStrategy === TreemapRenderStrategy.squarified &&
                     this.squarified}
                 <VerticalColorLegend manager={this} />
-                <TippyIfInteractive
-                    lazy
-                    isInteractive={!this.manager.isExportingtoSvgOrPng}
-                    hideOnClick={false}
-                    content={<TreemapChart.tooltip {...this.tooltipProps} />}
-                >
-                    <text>{this.hoveredBlock?.text}</text>
-                </TippyIfInteractive>
             </g>
         )
     }
