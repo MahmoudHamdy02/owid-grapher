@@ -327,6 +327,7 @@ export class Grapher
     @observable.ref showYearLabels?: boolean = undefined // Always show year in labels for bar charts
     @observable.ref hasChartTab: boolean = true
     @observable.ref hasMapTab: boolean = false
+    @observable.ref renderAllEntities: boolean = false
     @observable.ref tab = GrapherTabOption.chart
     @observable.ref overlay?: GrapherTabOption = undefined
     @observable.ref internalNotes = ""

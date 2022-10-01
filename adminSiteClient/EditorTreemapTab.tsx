@@ -3,7 +3,7 @@ import { observable, action } from "mobx"
 import { observer } from "mobx-react"
 import { Grapher } from "../grapher/core/Grapher.js"
 import { ComparisonLineConfig } from "../grapher/scatterCharts/ComparisonLine.js"
-import { SelectField, Section } from "./Forms.js"
+import { SelectField, Section, Toggle } from "./Forms.js"
 import { TreemapRenderStrategy } from "../grapher/core/GrapherConstants.js"
 
 @observer
@@ -31,6 +31,11 @@ export class EditorTreemapTab extends React.Component<{ grapher: Grapher }> {
                         options={Object.keys(TreemapRenderStrategy).map(
                             (entry) => ({ value: entry })
                         )}
+                    />
+                    <Toggle
+                        label="Render all entities"
+                        value={grapher.renderAllEntities}
+                        onValue={(value) => (grapher.renderAllEntities = value)}
                     />
                 </Section>
             </div>

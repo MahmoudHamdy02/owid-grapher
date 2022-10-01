@@ -279,6 +279,45 @@ export class TreemapChart
         return sortBy(series, (item) => item.value).reverse()
     }
 
+    @computed get otherCellIndex(): number | undefined {
+        const { series } = this
+        for (let i = 0; i < series.length - 2; i++) {
+            const forwardSum = sum(
+                series.slice(i + 1).map((item) => item.value)
+            )
+            if (
+                series[i].value > forwardSum &&
+                forwardSum / this.seriesSum < 0.03
+            ) {
+                return i + 1
+            }
+        }
+        return undefined
+    }
+
+    @computed get otherEntities(): TreemapSeries[] | undefined {
+        return this.otherCellIndex
+            ? this.series.slice(this.otherCellIndex)
+            : undefined
+    }
+
+    @computed get otherSeries(): TreemapSeries[] | undefined {
+        if (this.otherCellIndex && this.otherEntities) {
+            const otherSeries = this.series.slice(0, this.otherCellIndex)
+            const block: TreemapSeries = {
+                color: this.otherEntities[0].color,
+                seriesName: "Other",
+                value: sum(this.otherEntities.map((item) => item.value)),
+                time: this.series[0].time,
+                label: "Other",
+            }
+            otherSeries.push(block)
+            return otherSeries
+        } else {
+            return undefined
+        }
+    }
+
     private assignColorToSeries(
         entityName: string,
         series: TreemapSeries
@@ -296,14 +335,25 @@ export class TreemapChart
     // Normalize the series values (areas) with respect to the bounds area
     @computed get normalizedSeries(): number[] {
         const { series, seriesSum, bounds } = this
-        return series.map((series) => {
-            return (
-                (series.value *
-                    bounds.height *
-                    (bounds.width - this.sidebarWidth)) /
-                seriesSum
-            )
-        })
+        if (this.otherSeries && !this.manager.renderAllEntities) {
+            return this.otherSeries.map((series) => {
+                return (
+                    (series.value *
+                        bounds.height *
+                        (bounds.width - this.sidebarWidth)) /
+                    seriesSum
+                )
+            })
+        } else {
+            return series.map((series) => {
+                return (
+                    (series.value *
+                        bounds.height *
+                        (bounds.width - this.sidebarWidth)) /
+                    seriesSum
+                )
+            })
+        }
     }
 
     getAspectRatio(width: number, height: number): number {
@@ -554,7 +604,9 @@ export class TreemapChart
             this.bounds.width - this.sidebarWidth,
             this.bounds.height,
             "vertical",
-            this.series,
+            this.otherSeries && !this.manager.renderAllEntities
+                ? this.otherSeries
+                : this.series,
             this.normalizedSeries
         ).map((block) => {
             return this.drawBlock(block, this.tooltipProps)
@@ -568,12 +620,25 @@ export class TreemapChart
             manager: this.manager,
             series: this.series,
             yColumn: this.yColumn,
+            otherEntities: this.otherEntities,
         }
         return tooltipProps
     }
 
     private static tooltip(props: TooltipProps): JSX.Element {
-        const { hoveredBlock, series, yColumn, manager } = props
+        const { hoveredBlock, series, yColumn, manager, otherEntities } = props
+
+        // const tooltipSeries =
+        //     hoveredBlock?.text === "Other" && otherEntities
+        //         ? otherEntities
+        //         : series
+
+        const tooltipSeries =
+            otherEntities && !manager.renderAllEntities
+                ? hoveredBlock?.text === "Other"
+                    ? otherEntities
+                    : series.slice(0, series.length - otherEntities.length)
+                : series
 
         return (
             <table style={{ fontSize: "0.9em", lineHeight: "1.4em" }}>
@@ -588,7 +653,7 @@ export class TreemapChart
                         </td>
                         <td></td>
                     </tr>
-                    {series.map((series) => (
+                    {tooltipSeries.map((series) => (
                         <tr
                             key={series.seriesName}
                             style={{

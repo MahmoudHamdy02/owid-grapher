@@ -6,6 +6,7 @@ import { TreemapRenderStrategy } from "../core/GrapherConstants.js"
 export interface TreemapChartManager extends ChartManager {
     hasTimeline?: boolean
     treemapRenderStrategy?: TreemapRenderStrategy
+    renderAllEntities?: boolean
 }
 
 export interface TreemapSeries extends ChartSeries {
@@ -28,4 +29,5 @@ export interface TooltipProps {
     series: TreemapSeries[]
     yColumn: CoreColumn
     manager: TreemapChartManager
+    otherEntities: TreemapSeries[] | undefined
 }

@@ -56,6 +56,7 @@ export interface GrapherInterface extends SortConfig {
     showYearLabels?: boolean // Always show year in labels for bar charts
     hasChartTab?: boolean
     hasMapTab?: boolean
+    renderAllEntities?: boolean
     tab?: GrapherTabOption
     overlay?: GrapherTabOption
     relatedQuestions?: RelatedQuestionsConfig[]
