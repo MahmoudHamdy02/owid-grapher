@@ -628,17 +628,28 @@ export class TreemapChart
     private static tooltip(props: TooltipProps): JSX.Element {
         const { hoveredBlock, series, yColumn, manager, otherEntities } = props
 
-        // const tooltipSeries =
-        //     hoveredBlock?.text === "Other" && otherEntities
-        //         ? otherEntities
-        //         : series
-
-        const tooltipSeries =
+        let tooltipSeries =
             otherEntities && !manager.renderAllEntities
                 ? hoveredBlock?.text === "Other"
                     ? otherEntities
                     : series.slice(0, series.length - otherEntities.length)
                 : series
+
+        // Only show subset of entities if there are too many to render in tooltip
+        if (tooltipSeries.length > 10) {
+            const itemIndex = tooltipSeries.findIndex(
+                (item) => item.seriesName === hoveredBlock?.text
+            )
+            tooltipSeries =
+                itemIndex < 3
+                    ? tooltipSeries.slice(0, 7)
+                    : itemIndex > tooltipSeries.length - 3
+                    ? tooltipSeries.slice(
+                          tooltipSeries.length - 7,
+                          tooltipSeries.length
+                      )
+                    : tooltipSeries.slice(itemIndex - 3, itemIndex + 4)
+        }
 
         return (
             <table style={{ fontSize: "0.9em", lineHeight: "1.4em" }}>
