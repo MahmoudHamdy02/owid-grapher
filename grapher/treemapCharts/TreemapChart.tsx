@@ -386,6 +386,7 @@ export class TreemapChart
         const isFocused = block.color === this.focusColor
         const isHovered = block.color === this.hoverColor || !this.hoverColor
         const labelColor = isDarkColor(block.color) ? "#fff" : "#000"
+        const fontSize = 16
         const content = (
             <g>
                 <rect
@@ -408,9 +409,9 @@ export class TreemapChart
                 ></rect>
                 {showText && (
                     <text
-                        x={block.x + block.width / 2 - textWidth / 2}
+                        x={block.x + (block.width - textWidth) / 2}
                         y={block.y + block.height / 2 + textHeight / 2}
-                        fontSize={14}
+                        fontSize={fontSize}
                         opacity={
                             !this.focusColor
                                 ? isHovered
