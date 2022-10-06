@@ -377,16 +377,33 @@ export class TreemapChart
         block: TreemapBlock,
         tooltipProps: TooltipProps
     ): SVGProps<SVGGElement> {
+        // Calculate text bounds at default font size
         const { width: textWidth, height: textHeight } = Bounds.forText(
-            block.text
+            block.text,
+            { fontSize: 14 }
         )
-        // Only show text if there is enough space
-        const showText =
-            textWidth < block.width * 0.85 && textHeight < block.height * 0.85
+
+        // If text doesn't fit, lower the font size
+        // There could be a more elegant way to write this, instead of hardcoding values
+        const widthRatio = textWidth / block.width
+        const heightRatio = textHeight / block.height
+        const fontSize =
+            widthRatio < 0.85 && heightRatio < 0.85
+                ? 14
+                : widthRatio < 1 && heightRatio < 1
+                ? 12
+                : widthRatio < 1.15 && heightRatio < 1.15
+                ? 10
+                : undefined
+
+        const { width: newTextWidth, height: newTextHeight } = Bounds.forText(
+            block.text,
+            { fontSize: fontSize }
+        )
+
         const isFocused = block.color === this.focusColor
         const isHovered = block.color === this.hoverColor || !this.hoverColor
         const labelColor = isDarkColor(block.color) ? "#fff" : "#000"
-        const fontSize = 16
         const content = (
             <g>
                 <rect
@@ -407,10 +424,10 @@ export class TreemapChart
                     strokeWidth={1}
                     stroke={"#ddd"}
                 ></rect>
-                {showText && (
+                {fontSize && (
                     <text
-                        x={block.x + (block.width - textWidth) / 2}
-                        y={block.y + block.height / 2 + textHeight / 2}
+                        x={block.x + (block.width - newTextWidth) / 2}
+                        y={block.y + block.height / 2 + newTextHeight / 2}
                         fontSize={fontSize}
                         opacity={
                             !this.focusColor
