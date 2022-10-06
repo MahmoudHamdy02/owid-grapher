@@ -308,7 +308,7 @@ export class TreemapChart
         if (this.otherCellIndex && this.otherEntities) {
             const otherSeries = this.series.slice(0, this.otherCellIndex)
             const block: TreemapSeries = {
-                color: "#ffff33",
+                color: "#e2b100",
                 seriesName: "Other",
                 value: sum(this.otherEntities.map((item) => item.value)),
                 time: this.series[0].time,
@@ -402,7 +402,7 @@ export class TreemapChart
         )
         const { width: unitWidth, height: unitHeight } = Bounds.forText(
             formatValue(block.value, { numberAbbreviation: "short" }),
-            { fontSize: fontSize }
+            { fontSize: fontSize ? fontSize - 1 : undefined }
         )
 
         // Check if there is enough space to show value and unit under entity name
@@ -438,11 +438,14 @@ export class TreemapChart
                         <text
                             x={block.x + (block.width - newTextWidth) / 2}
                             y={
-                                block.y -
+                                block.y +
+                                newTextHeight -
+                                2 -
                                 (showUnit ? unitHeight / 2 : 0) +
-                                (block.height + newTextHeight) / 2
+                                (block.height - newTextHeight) / 2
                             }
                             fontSize={fontSize}
+                            fontWeight={600}
                             opacity={
                                 !this.focusColor
                                     ? isHovered
@@ -464,7 +467,7 @@ export class TreemapChart
                                     unitHeight / 2 +
                                     (block.height + unitHeight) / 2
                                 }
-                                fontSize={fontSize}
+                                fontSize={fontSize - 1}
                                 opacity={
                                     !this.focusColor
                                         ? isHovered
