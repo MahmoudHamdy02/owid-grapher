@@ -22,6 +22,7 @@ export interface TreemapBlock {
     height: number
     color: string
     text: string
+    value: number
 }
 
 export interface TooltipProps {

@@ -400,6 +400,15 @@ export class TreemapChart
             block.text,
             { fontSize: fontSize }
         )
+        const { width: unitWidth, height: unitHeight } = Bounds.forText(
+            formatValue(block.value, { numberAbbreviation: "short" }),
+            { fontSize: fontSize }
+        )
+
+        // Check if there is enough space to show value and unit under entity name
+        const showUnit =
+            unitWidth < block.width * 0.85 &&
+            unitHeight + textHeight < block.height * 0.85
 
         const isFocused = block.color === this.focusColor
         const isHovered = block.color === this.hoverColor || !this.hoverColor
@@ -425,23 +434,54 @@ export class TreemapChart
                     stroke={"#ddd"}
                 ></rect>
                 {fontSize && (
-                    <text
-                        x={block.x + (block.width - newTextWidth) / 2}
-                        y={block.y + block.height / 2 + newTextHeight / 2}
-                        fontSize={fontSize}
-                        opacity={
-                            !this.focusColor
-                                ? isHovered
+                    <>
+                        <text
+                            x={block.x + (block.width - newTextWidth) / 2}
+                            y={
+                                block.y -
+                                (showUnit ? unitHeight / 2 : 0) +
+                                (block.height + newTextHeight) / 2
+                            }
+                            fontSize={fontSize}
+                            opacity={
+                                !this.focusColor
+                                    ? isHovered
+                                        ? 0.8
+                                        : 0.2
+                                    : isFocused
                                     ? 0.8
                                     : 0.2
-                                : isFocused
-                                ? 0.8
-                                : 0.2
-                        }
-                        fill={labelColor}
-                    >
-                        {block.text}
-                    </text>
+                            }
+                            fill={labelColor}
+                        >
+                            {block.text}
+                        </text>
+                        {showUnit && (
+                            <text
+                                x={block.x + (block.width - unitWidth) / 2}
+                                y={
+                                    block.y +
+                                    unitHeight / 2 +
+                                    (block.height + unitHeight) / 2
+                                }
+                                fontSize={fontSize}
+                                opacity={
+                                    !this.focusColor
+                                        ? isHovered
+                                            ? 0.8
+                                            : 0.2
+                                        : isFocused
+                                        ? 0.8
+                                        : 0.2
+                                }
+                                fill={labelColor}
+                            >
+                                {formatValue(block.value, {
+                                    numberAbbreviation: "short",
+                                })}
+                            </text>
+                        )}
+                    </>
                 )}
             </g>
         )
@@ -486,6 +526,7 @@ export class TreemapChart
                     height: bounds.height,
                     text: series.seriesName,
                     color: series.color,
+                    value: series.value,
                 },
                 this.tooltipProps
             )
@@ -508,6 +549,7 @@ export class TreemapChart
                     height: (series.value / this.seriesSum) * bounds.height,
                     text: series.seriesName,
                     color: series.color,
+                    value: series.value,
                 },
                 this.tooltipProps
             )
@@ -536,6 +578,7 @@ export class TreemapChart
                 height: height,
                 color: series[0].color,
                 text: series[0].seriesName,
+                value: series[0].value,
             }
             return [rect]
         }
@@ -599,6 +642,7 @@ export class TreemapChart
                         width: blockWidth,
                         color: series.color,
                         text: series.seriesName,
+                        value: series.value,
                     }
                     blocks.push(rect)
                     direction === "vertical"
