@@ -342,7 +342,7 @@ export class Grapher
     @observable
     scatterPointLabelStrategy?: ScatterPointLabelStrategy = undefined
     @observable treemapRenderStrategy?: TreemapRenderStrategy =
-        TreemapRenderStrategy.horizonalSlice
+        TreemapRenderStrategy.squarified
     @observable.ref compareEndPointsOnly?: boolean = undefined
     @observable.ref matchingEntitiesOnly?: boolean = undefined
     /** Hides the total value label that is normally displayed for stacked bar charts */
