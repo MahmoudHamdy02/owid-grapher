@@ -37,6 +37,11 @@ export class EditorTreemapTab extends React.Component<{ grapher: Grapher }> {
                         value={grapher.renderAllEntities}
                         onValue={(value) => (grapher.renderAllEntities = value)}
                     />
+                    <Toggle
+                        label="Group by continent"
+                        value={grapher.groupByContinent}
+                        onValue={(value) => (grapher.groupByContinent = value)}
+                    />
                 </Section>
             </div>
         )

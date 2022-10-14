@@ -42,6 +42,7 @@ import { TippyIfInteractive } from "../chart/Tippy.js"
 import { isDarkColor } from "../color/ColorUtils.js"
 import { TreemapTooltip } from "./TreemapTooltip.js"
 import { PrimitiveType } from "../../clientUtils/owidTypes.js"
+import { string } from "parsimmon"
 
 @observer
 export class TreemapChart
@@ -690,6 +691,65 @@ export class TreemapChart
         })
     }
 
+    @computed get continentSeries(): TreemapSeries[] {
+        const labels = ["Africa", "Asia", "Europe","North America","South America","Oceania","Antarctica"]
+        const continents = labels.map((label)=>{
+            const item: TreemapSeries = {
+                color: "#000",
+                time: 0,
+                seriesName: label,
+                value: sum(this.series.filter((item)=>(item.label === label)).map((item)=>item.value))
+            }
+            return item
+        })
+
+        return sortBy(continents.filter((item)=>(item.value !== 0)), (item) => item.value).reverse()
+    }
+
+    @computed get normalizedContinentSeries(): number[] {
+        const { continentSeries, bounds } = this
+        const continentSeriesSum = sum(continentSeries.map((item)=>item.value))
+        
+        return continentSeries.map((series) => {
+                return (
+                    (series.value *
+                        bounds.height *
+                        (bounds.width - this.sidebarWidth)) /
+                    continentSeriesSum
+                )
+            })
+        
+    }
+
+    @computed get continentDimensions(): TreemapBlock[] {
+        return this.drawSquarified(10, 0, this.bounds.width - this.sidebarWidth, this.bounds.height,"vertical",this.continentSeries,this.normalizedContinentSeries)
+    }
+
+    @computed get groupedSquarified(): SVGProps<SVGGElement>[] {
+        const blocks: TreemapBlock[] = []
+        this.continentDimensions.map((continent)=>{
+            const series = this.series.filter((item)=>(item.label === continent.text))
+            this.drawSquarified(continent.x, continent.y, continent.width, continent.height,"vertical",series,this.normalizeSeries(series, continent.width, continent.height)).map((block)=>{blocks.push(block)})
+        })
+        // const series = this.series.filter((item)=>(item.label === this.continentDimensions[0].text))
+        // console.log(series, this.normalizeSeries(series, this.continentDimensions[0].width, this.continentDimensions[0].height), this.continentDimensions[0].width, this.continentDimensions[0].height)
+        // this.drawSquarified(this.continentDimensions[0].x, this.continentDimensions[0].y, this.continentDimensions[0].width, this.continentDimensions[0].height,"vertical",series,this.normalizeSeries(series, this.continentDimensions[0].width, this.continentDimensions[0].height)).map((block)=>{blocks.push(block)})
+        // console.log(blocks)
+        return blocks.map((block)=>{return this.drawBlock(block,this.tooltipProps)})
+    }
+
+    normalizeSeries(input: TreemapSeries[], width: number, height: number): number[] {
+        const {bounds} = this
+        return input.map((series) => {
+            return (
+                (series.value *
+                    height *
+                    (width)) /
+                sum(input.map((item)=>item.value))
+            )
+        })
+    }
+
     // Tooltip config
     @computed get tooltipProps(): TooltipProps {
         const tooltipProps: TooltipProps = {
@@ -831,7 +891,7 @@ export class TreemapChart
                 {renderStrategy === TreemapRenderStrategy.verticalSlice &&
                     this.verticalSlice}
                 {renderStrategy === TreemapRenderStrategy.squarified &&
-                    this.squarified}
+                    this.manager.groupByContinent ? this.groupedSquarified : this.squarified}
                 <VerticalColorLegend manager={this} />
                 {this.hoveredBlock && this.hoveredBlock.text !== "Other" && (
                     <TreemapTooltip

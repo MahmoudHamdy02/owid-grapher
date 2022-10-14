@@ -7,6 +7,7 @@ export interface TreemapChartManager extends ChartManager {
     hasTimeline?: boolean
     treemapRenderStrategy?: TreemapRenderStrategy
     renderAllEntities?: boolean
+    groupByContinent?: boolean
 }
 
 export interface TreemapSeries extends ChartSeries {

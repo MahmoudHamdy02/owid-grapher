@@ -328,6 +328,7 @@ export class Grapher
     @observable.ref hasChartTab: boolean = true
     @observable.ref hasMapTab: boolean = false
     @observable.ref renderAllEntities: boolean = false
+    @observable.ref groupByContinent: boolean = false
     @observable.ref tab = GrapherTabOption.chart
     @observable.ref overlay?: GrapherTabOption = undefined
     @observable.ref internalNotes = ""
